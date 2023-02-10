@@ -39,18 +39,22 @@ class DrawableElement:
                             raise KeyError(f"Key {k} should be defined in .yaml file in {self.__class__.__name__} or it's parents.")
         for k in attr_to_set:
             setattr(self, k, self.__annotations__[k](dict_params[k], modeler, name + "_" + k, parent=self))
-                
     
+
     def __repr__(self) -> str:
+        return f"<{self.__class__.__name__} {self.name}>"
+    
+    
+    def __str__(self) -> str:
         string = ""
         for k in self.__annotations__:
             attr = getattr(self, k)
-            repr_subel = repr(attr)
-            if "\n" in repr_subel:
+            if isinstance(attr, DrawableElement):
+                repr_subel = repr(attr)
                 repr_subel = repr_subel.replace("\n", "\n  ")
                 string += f"{k}:\n  {repr_subel},\n"
             else:
-                string += f"{k}: {repr_subel},\n"
+                string += f"{k}: {type(attr)},"
         return f"{string[:-2]}"
 
 

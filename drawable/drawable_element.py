@@ -1,5 +1,6 @@
 import yaml
 from typing import List
+from copy import copy
 
 from HFSSdrawpy import Modeler, Body
 from HFSSdrawpy.utils import parse_entry
@@ -37,13 +38,14 @@ class DrawableElement:
                 else:
                     attr_to_set.append(k)
             elif k not in ["parent", "name"]:
-                while parent is not None:
-                    if k in parent.__dict__:
-                        setattr(self, k, parent.__dict__[k])
+                local_parent = copy(parent)
+                while local_parent is not None:
+                    if k in local_parent.__dict__:
+                        setattr(self, k, local_parent.__dict__[k])
                         break
                     else:
-                        if parent.parent is not None:
-                            parent = parent.parent
+                        if local_parent.parent is not None:
+                            local_parent = local_parent.parent
                         else:
                             raise KeyError(
                                 f"Key {k} should be defined in .yaml file "

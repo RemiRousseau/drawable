@@ -1,1 +1,4 @@
 *.pyc
+build/
+drawable.egg-info/
+tests/

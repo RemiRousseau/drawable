@@ -1,8 +1,10 @@
 Class tools to help design chips with HFSSdrawpy.
 
-Install by running :
+Installation:
 
-pip install git+https://github.com/RemiRousseau/drawable.git
+clone git repository (https://github.com/RemiRousseau/drawable.git)
+Got to file location and run:
+pip install .
 
 This package contains two classes:
 

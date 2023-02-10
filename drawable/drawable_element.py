@@ -11,9 +11,9 @@ class DrawableElement:
 
     def __init__(self, dict_params: dict, modeler: Modeler, name: str, parent = None) -> None:
         self.parent = parent
-        attr_to_set = []
         self.name = name
 
+        attr_to_set = []
         for k in self.__annotations__:
             if k in dict_params:
                 if self.__annotations__[k] in [str, int]:
@@ -42,19 +42,23 @@ class DrawableElement:
     
 
     def __repr__(self) -> str:
-        return f"<{self.__class__.__name__} {self.name}>"
+        return f"<{self.__class__.__name__}: {self.name}>"
     
-    
+
     def __str__(self) -> str:
         string = ""
-        for k in self.__annotations__:
-            attr = getattr(self, k)
-            if isinstance(attr, DrawableElement):
-                repr_subel = repr(attr)
-                repr_subel = repr_subel.replace("\n", "\n  ")
-                string += f"{k}:\n  {repr_subel},\n"
-            else:
-                string += f"{k}: {type(attr)},"
+        for k in self.__dict__:
+            attr = self.__dict__[k]
+            if k!="parent":
+                if isinstance(attr, DrawableElement):
+                    repr_subel = str(attr)
+                    repr_subel = repr_subel.replace("\n", "\n  ")
+                    string += f"{k}:\n  {repr_subel},\n"
+                else:
+                    if isinstance(attr, float):
+                        string += f"{k}: {attr:.4e},\n"
+                    else:
+                        string += f"{k}: {attr},\n"
         return f"{string[:-2]}"
 
 

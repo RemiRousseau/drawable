@@ -24,7 +24,7 @@ class DrawableElement:
                     else:
                         setattr(
                             self, k, 
-                            modeler.set_variable(dict_params[k], name=k + "_" + name))
+                            modeler.set_variable(dict_params[k], name=name + "_" + k))
                 else:
                     attr_to_set.append(k)
             elif k not in ["parent", "name"]:
@@ -38,7 +38,7 @@ class DrawableElement:
                         else:
                             raise KeyError(f"Key {k} should be defined in .yaml file in {self.__class__.__name__} or it's parents.")
         for k in attr_to_set:
-            setattr(self, k, self.__annotations__[k](dict_params[k], modeler, k + "_" + name, parent=self))
+            setattr(self, k, self.__annotations__[k](dict_params[k], modeler, name + "_" + k, parent=self))
                 
     
     def __repr__(self) -> str:
@@ -68,9 +68,8 @@ class DrawableElement:
 
 
     def draw(self, chip: Body, **kwargs) -> None:
-        name = kwargs.pop("name", "") + self.__class__.__name__
         if self.to_draw:
-            return self._draw(chip, name=name, **kwargs)
+            return self._draw(chip, **kwargs)
         return None
 
 

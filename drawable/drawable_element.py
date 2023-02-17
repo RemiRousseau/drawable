@@ -6,6 +6,11 @@ from HFSSdrawpy import Modeler, Body
 from HFSSdrawpy.utils import parse_entry
 
 
+class ImplementationError(Exception):
+    "Raised there is an implementation error usign drawable."
+    pass
+
+
 class DrawableElement:
     parent = None
     name: str
@@ -21,6 +26,11 @@ class DrawableElement:
 
         self.parent = parent
         self.name = name
+
+        if type(self).draw != DrawableElement.draw:
+            raise ImplementationError(
+                "User should not override the draw method.\n" +
+                "He should implement_draw instead.")
 
         attr_to_set = []
         for k in self.__annotations__:

@@ -35,7 +35,7 @@ class DrawableElement:
         attr_to_set = []
         for k in self.__annotations__:
             if k in dict_params:
-                if self.__annotations__[k] in [str, int]:
+                if self.__annotations__[k] in [str, int, bool]:
                     if k[-4:] == "__np":
                         setattr(self, k, dict_params[k])
                     elif k[-3:] == "__n" or modeler.mode == "gds":

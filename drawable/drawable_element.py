@@ -1,10 +1,19 @@
 import yaml
 from typing import List
 from copy import copy, deepcopy
-from pydantic.utils import deep_update
+import collections.abc
 
 from HFSSdrawpy import Modeler, Body
 from HFSSdrawpy.utils import parse_entry
+
+
+def deep_update(d, u):
+    for k, v in u.items():
+        if isinstance(v, collections.abc.Mapping):
+            d[k] = deep_update(d.get(k, {}), v)
+        else:
+            d[k] = v
+    return d
 
 
 class ImplementationError(Exception):

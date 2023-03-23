@@ -14,5 +14,5 @@ setuptools.setup(
     url='https://github.com/RemiRousseau/drawable.git',
     license='MIT',
     packages=['drawable'],
-    install_requires=['HFSSdrawpy'],
+    install_requires=[],
 )

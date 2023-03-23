@@ -1,6 +1,7 @@
 import yaml
 from typing import List
-from copy import copy
+from copy import copy, deepcopy
+from pydantic.utils import deep_update
 
 from HFSSdrawpy import Modeler, Body
 from HFSSdrawpy.utils import parse_entry
@@ -12,8 +13,8 @@ class ImplementationError(Exception):
 
 
 class DrawableElement:
-    parent = None
-    name: str
+    _parent = None
+    _name: str
     to_draw: bool = True
 
     def __init__(
@@ -23,51 +24,86 @@ class DrawableElement:
         name: str,
         parent=None
     ) -> None:
+        if modeler is None:
+            mode = "None"
+        else:
+            mode = modeler.mode
 
-        self.parent = parent
-        self.name = name
+        self._parent = parent
+        self._name = name
 
-        if type(self).draw != DrawableElement.draw:
+        if type(self).draw is not DrawableElement.draw:
             raise ImplementationError(
                 "User should not override the draw method.\n" +
                 "He should implement_draw instead.")
 
         attr_to_set = []
-        for k in self.__annotations__:
+        for k, v in self.__annotations__.items():
             if k in dict_params:
-                if self.__annotations__[k] in [str, int, bool]:
-                    if k[-4:] == "__np":
+                if v in [str, int, bool]:
+                    splt = k.split("__")
+                    if len(splt) > 2:
+                        raise ValueError(
+                            f"Variable {k} in class should " +
+                            "contain maximum one '__'."
+                        )
+                    elif len(splt) == 1:
+                        splt.append("")
+
+                    if splt[1] == "np" or mode == "None":
                         setattr(self, k, dict_params[k])
-                    elif k[-3:] == "__n" or modeler.mode == "gds":
+                    elif splt[1] == "n" or mode == "gds":
                         setattr(self, k, parse_entry(dict_params[k]))
                     else:
                         setattr(
                             self, k,
                             modeler.set_variable(
-                                dict_params[k], name=name + "_" + k))
+                                dict_params[k], name=name + "_" + k)
+                        )
                 else:
                     attr_to_set.append(k)
-            elif k not in ["parent", "name"]:
-                local_parent = copy(parent)
-                while local_parent is not None:
-                    if k in local_parent.__dict__:
-                        setattr(self, k, local_parent.__dict__[k])
-                        break
-                    else:
-                        if local_parent.parent is not None:
-                            local_parent = local_parent.parent
+            elif not k.startswith("_"):
+                if not k.endswith("__dct"):
+                    local_parent = copy(parent)
+                    while local_parent is not None:
+                        if k in local_parent.__dict__:
+                            setattr(self, k, local_parent.__dict__[k])
+                            break
                         else:
-                            raise KeyError(
-                                f"Key {k} should be defined in .yaml file "
-                                + f"in {self.__class__.__name__} or "
-                                + "in it's parents.")
+                            if local_parent.parent is not None:
+                                local_parent = local_parent.parent
+                            else:
+                                raise KeyError(
+                                    f"Key {k} should be defined in .yaml file "
+                                    + f"in {self.__class__.__name__} or "
+                                    + "in it's parents.")
+                else:
+                    setattr(self, k, {})
         for k in attr_to_set:
             setattr(
                 self, k, self.__annotations__[k](
                     dict_params[k], modeler, name + "_" + k, parent=self))
+        for k, v in dict_params.items():
+            splt = k.split("__")
+            if len(splt) > 2:
+                raise ValueError(
+                    f"Variable {k} in config should " +
+                    "contain maximum one '__'."
+                )
+            if len(splt) == 2 and splt[1].isdigit():
+                kv, indv = splt
+                attr_dict = getattr(self, kv+"__dct", None)
+                if attr_dict is None:
+                    raise ValueError(
+                        f"To have variation '{k}', the attribute" +
+                        f" '{kv}__dct' should be defined in class.")
+                if v is not None:
+                    variation = deep_update(deepcopy(dict_params[kv]), v)
+                attr_dict[indv] = self.__annotations__[kv](
+                    variation, modeler, name + "_" + k, parent=self)
 
     def __repr__(self) -> str:
-        return f"<{self.__class__.__name__}: {self.name}>"
+        return f"<{self.__class__.__name__}: {self._name}>"
 
     def __str__(self) -> str:
         string = ""
@@ -87,11 +123,19 @@ class DrawableElement:
 
     @property
     def children(self) -> List:
-        childs = []
+        children = []
         for k in self.__dict__:
             if isinstance(self.__dict__[k], DrawableElement) and k != "parent":
-                childs.append(k)
-        return childs
+                children.append(k)
+        return children
+
+    @property
+    def parent(self):
+        return self._parent
+
+    @property
+    def name(self):
+        return self._name
 
     def _draw(self, chip: Body, **kwargs) -> None:
         for k in self.children:
@@ -103,8 +147,7 @@ class DrawableElement:
 
     def draw(self, chip: Body, **kwargs) -> None:
         if self.to_draw:
-            return self._draw(chip, **kwargs)
-        return None
+            self._draw(chip, **kwargs)
 
 
 class Design(DrawableElement):

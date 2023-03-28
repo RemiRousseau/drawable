@@ -2,15 +2,15 @@ chip_height: 10mm
 chip_thickness: 300um
 chip_width: 10mm
 fillet: 5um
-gap: 5um
-qubit: "example_qubit.yaml"
+gap: 10um
+qubit: "example/qubit_params.yaml"
 qubit__1:
   transmon:
-    pad_height: 100um
+    pad_height: 200um
   x_pos: -1mm
 qubit__2:
   transmon:
     pad_height: 100um
   x_pos: 1mm
-track: 10um
+track: 20um
 vacuum_thickness: 3mm

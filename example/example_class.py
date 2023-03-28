@@ -207,6 +207,7 @@ class Chip(Design):
 
     def _draw(self, body: Body, **kwargs):
         with body([self.chip_width/2, self.chip_height/2], [1, 0]):
+            # self.qubit.draw(body, **kwargs)
             if len(self.qubit__dct) == 0:
                 self.qubit.draw(body, **kwargs)
             else:
@@ -215,6 +216,7 @@ class Chip(Design):
 
         self._ground_plane = body.rect(
             [0, 0], [self.chip_width, self.chip_height], layer=TRACK)
+
         gap_el = body.entities.get(GAP, None)
         if len(gap_el) >= 1:
             gap_el[0].unite(gap_el[1:])
@@ -250,3 +252,4 @@ class Chip(Design):
                         -self.vacuum_thickness]
             vacuum.unite(body.box(pos_vac, size_vac, material='vacuum',
                                   name='top_box_1'))
+            

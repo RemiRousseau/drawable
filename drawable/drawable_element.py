@@ -1,5 +1,5 @@
 import yaml
-from typing import List
+from typing import List, Dict, Union
 from copy import copy, deepcopy
 import collections.abc
 
@@ -28,7 +28,7 @@ class DrawableElement:
 
     def __init__(
         self,
-        dict_params: dict,
+        dict_params: Union[Dict, str],
         modeler: Modeler,
         name: str,
         parent=None
@@ -46,7 +46,7 @@ class DrawableElement:
                 "User should not override the draw method.\n" +
                 "He should implement_draw instead.")
 
-        attr_to_set = []        
+        attr_to_set = []
         for k, cls_name in self.__annotations__.items():
             if k in dict_params:
                 if not issubclass(cls_name, DrawableElement):
@@ -80,10 +80,19 @@ class DrawableElement:
                 else:
                     setattr(self, k, {})
         for k in attr_to_set:
+            if isinstance(dict_params[k], str):
+                file_name = dict_params[k]
+                if not dict_params[k].endswith(".yaml"):
+                    raise ValueError(
+                        f"Element {self._name} has dict params file that does " +
+                        "not ends with '.yaml'")
+                with open(file_name, 'r') as file:
+                    read = file.read()
+                    dict_params[k] = yaml.safe_load(read)
             setattr(
                 self, k, self.__annotations__[k](
                     dict_params[k], modeler, name + "_" + k, parent=self))
-        for k, cls_name in dict_params.items():
+        for k, sub_dict in dict_params.items():
             splt = k.split("__")
             if len(splt) > 2:
                 raise ValueError(
@@ -97,9 +106,9 @@ class DrawableElement:
                     raise ValueError(
                         f"To have variation '{k}', the attribute" +
                         f" '{kv}__dct' should be defined in class.")
-                if cls_name is not None:
+                if sub_dict is not None:
                     variation = deep_update(
-                        deepcopy(dict_params[kv]), cls_name)
+                        deepcopy(dict_params[kv]), sub_dict)
                 attr_dict[indv] = self.__annotations__[kv](
                     variation, modeler, name + "_" + k, parent=self)
 

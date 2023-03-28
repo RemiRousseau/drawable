@@ -1,6 +1,6 @@
 transmon:
   coupling_pad:
-    dist: 10um
+    dist: 40um
     offset: 0um
   cutout_height: 1mm
   cutout_width: 1mm

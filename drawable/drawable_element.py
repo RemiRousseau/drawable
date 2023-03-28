@@ -46,22 +46,13 @@ class DrawableElement:
                 "User should not override the draw method.\n" +
                 "He should implement_draw instead.")
 
-        attr_to_set = []
-        for k, v in self.__annotations__.items():
+        attr_to_set = []        
+        for k, cls_name in self.__annotations__.items():
             if k in dict_params:
-                if v in [str, int, bool]:
-                    splt = k.split("__")
-                    if len(splt) > 2:
-                        raise ValueError(
-                            f"Variable {k} in class should " +
-                            "contain maximum one '__'."
-                        )
-                    elif len(splt) == 1:
-                        splt.append("")
-
-                    if splt[1] == "np" or mode == "None":
+                if not issubclass(cls_name, DrawableElement):
+                    if k.endswith("__np") or mode == "None":
                         setattr(self, k, dict_params[k])
-                    elif splt[1] == "n" or mode == "gds":
+                    elif k.endswith("__n") or mode == "gds":
                         setattr(self, k, parse_entry(dict_params[k]))
                     else:
                         setattr(
@@ -92,7 +83,7 @@ class DrawableElement:
             setattr(
                 self, k, self.__annotations__[k](
                     dict_params[k], modeler, name + "_" + k, parent=self))
-        for k, v in dict_params.items():
+        for k, cls_name in dict_params.items():
             splt = k.split("__")
             if len(splt) > 2:
                 raise ValueError(
@@ -106,8 +97,9 @@ class DrawableElement:
                     raise ValueError(
                         f"To have variation '{k}', the attribute" +
                         f" '{kv}__dct' should be defined in class.")
-                if v is not None:
-                    variation = deep_update(deepcopy(dict_params[kv]), v)
+                if cls_name is not None:
+                    variation = deep_update(
+                        deepcopy(dict_params[kv]), cls_name)
                 attr_dict[indv] = self.__annotations__[kv](
                     variation, modeler, name + "_" + k, parent=self)
 
@@ -118,7 +110,7 @@ class DrawableElement:
         string = ""
         for k in self.__dict__:
             attr = self.__dict__[k]
-            if k != "parent":
+            if k != "_parent":
                 if isinstance(attr, DrawableElement):
                     repr_subel = str(attr)
                     repr_subel = repr_subel.replace("\n", "\n  ")
@@ -146,17 +138,17 @@ class DrawableElement:
     def name(self):
         return self._name
 
-    def _draw(self, chip: Body, **kwargs) -> None:
+    def _draw(self, body: Body, **kwargs) -> None:
         for k in self.children:
             attribute = getattr(self, k)
-            attribute.draw(chip, **kwargs)
+            attribute.draw(body, **kwargs)
         if len(self.children) == 0:
             raise NotImplementedError(
                 f"_draw() of {self.__class__.__name__} is not implemented")
 
-    def draw(self, chip: Body, **kwargs) -> None:
+    def draw(self, body: Body, **kwargs) -> None:
         if self.to_draw:
-            self._draw(chip, **kwargs)
+            self._draw(body, **kwargs)
 
 
 class Design(DrawableElement):

@@ -1,5 +1,5 @@
 import yaml
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Any
 from copy import copy, deepcopy
 import collections.abc
 
@@ -33,11 +33,9 @@ class DrawableElement:
         name: str,
         parent=None
     ) -> None:
-        if modeler is None:
-            mode = "None"
-        else:
-            mode = modeler.mode
 
+        self._modeler = modeler
+        self._mode = "None" if self._modeler is None else self._modeler.mode
         self._parent = parent
         self._name = name
 
@@ -46,52 +44,14 @@ class DrawableElement:
                 "User should not override the draw method.\n" +
                 "He should implement_draw instead.")
 
-        attr_to_set = []
-        for k, cls_name in self.__annotations__.items():
-            if k in dict_params:
-                if not issubclass(cls_name, DrawableElement):
-                    if k.endswith("__np") or mode == "None":
-                        setattr(self, k, dict_params[k])
-                    elif k.endswith("__n") or mode == "gds":
-                        setattr(self, k, parse_entry(dict_params[k]))
-                    else:
-                        setattr(
-                            self, k,
-                            modeler.set_variable(
-                                dict_params[k], name=name + "_" + k)
-                        )
-                else:
-                    attr_to_set.append(k)
-            elif not k.startswith("_"):
-                if not k.endswith("__dct"):
-                    local_parent = copy(parent)
-                    while local_parent is not None:
-                        if k in local_parent.__dict__:
-                            setattr(self, k, local_parent.__dict__[k])
-                            break
-                        else:
-                            if local_parent.parent is not None:
-                                local_parent = local_parent.parent
-                            else:
-                                raise KeyError(
-                                    f"Key {k} should be defined in .yaml file "
-                                    + f"in {self.__class__.__name__} or "
-                                    + "in it's parents.")
-                else:
-                    setattr(self, k, {})
+        attr_to_set = self._parse_dict_params(dict_params)
         for k in attr_to_set:
             if isinstance(dict_params[k], str):
-                file_name = dict_params[k]
-                if not dict_params[k].endswith(".yaml"):
-                    raise ValueError(
-                        f"Element {self._name} has dict params file that does " +
-                        "not ends with '.yaml'")
-                with open(file_name, 'r') as file:
-                    read = file.read()
-                    dict_params[k] = yaml.safe_load(read)
+                dict_params[k] = self._load_dict_from_file(dict_params[k])
             setattr(
                 self, k, self.__annotations__[k](
                     dict_params[k], modeler, name + "_" + k, parent=self))
+
         for k, sub_dict in dict_params.items():
             splt = k.split("__")
             if len(splt) > 2:
@@ -111,6 +71,56 @@ class DrawableElement:
                         deepcopy(dict_params[kv]), sub_dict)
                 attr_dict[indv] = self.__annotations__[kv](
                     variation, modeler, name + "_" + k, parent=self)
+
+    def _set_element(self, key: str, value: Any) -> None:
+        if key.endswith("__np") or self._mode == "None":
+            setattr(self, key, value)
+        elif key.endswith("__n") or self._mode == "gds":
+            setattr(self, key, parse_entry(value))
+        else:
+            setattr(
+                self,
+                key,
+                self._modeler.set_variable(
+                    value, name=self.name + "_" + key))
+
+    def _search_in_parents(self, key: str) -> None:
+        local_parent = copy(self._parent)
+        while local_parent is not None:
+            if key in local_parent.__dict__:
+                setattr(self, key, local_parent.__dict__[key])
+                return
+            else:
+                local_parent = local_parent.parent
+        raise KeyError(
+            f"Key {key} should be defined in .yaml file "
+            + f"in {self.__class__.__name__} or "
+            + "in it's parents.")
+
+    def _load_dict_from_file(self, file_path: str) -> Dict[str, Any]:
+        if not file_path.endswith(".yaml"):
+            raise ValueError(
+                f"Element {self._name} has dict params file that " +
+                "does not ends with '.yaml'")
+        with open(file_path, 'r') as file:
+            read = file.read()
+            dict_par = yaml.safe_load(read)
+        return dict_par
+
+    def _parse_dict_params(self, dict_params) -> List[str]:
+        attr_to_set = []
+        for k, cls_name in self.__annotations__.items():
+            if k in dict_params:
+                if not issubclass(cls_name, DrawableElement):
+                    self._set_element(k, dict_params[k])
+                else:
+                    attr_to_set.append(k)
+            elif not k.startswith("_"):
+                if not k.endswith("__dct"):
+                    self._search_in_parents(k)
+                else:
+                    setattr(self, k, {})
+        return attr_to_set
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__}: {self._name}>"

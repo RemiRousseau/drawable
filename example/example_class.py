@@ -252,4 +252,3 @@ class Chip(Design):
                         -self.vacuum_thickness]
             vacuum.unite(body.box(pos_vac, size_vac, material='vacuum',
                                   name='top_box_1'))
-            

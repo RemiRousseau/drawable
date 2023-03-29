@@ -1,5 +1,5 @@
 from typing import Dict
-from drawable.drawable_element import Design, DrawableElement
+from drawable.drawable_element import DrawableElement, Variation
 from HFSSdrawpy import Body, Entity
 from HFSSdrawpy.parameters import TRACK, GAP, RLC
 from HFSSdrawpy.utils import Vector
@@ -189,9 +189,8 @@ class Qubit(DrawableElement):
             self.transmon.draw(body, **kwargs)
 
 
-class Chip(Design):
-    qubit: Qubit
-    qubit__dct: Dict[int, Qubit]
+class Chip(DrawableElement):
+    qubit: Variation[Qubit]
 
     chip_width: str
     chip_height: str

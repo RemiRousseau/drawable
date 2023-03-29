@@ -1,4 +1,3 @@
-from typing import Dict
 from drawable.drawable_element import DrawableElement, Variation
 from HFSSdrawpy import Body, Entity
 from HFSSdrawpy.parameters import TRACK, GAP, RLC
@@ -26,7 +25,7 @@ class Junction(DrawableElement):
 
         connector_l = self.pad_spacing/2 - h_gap
 
-        if body.pm.mode == "hfss":
+        if self._mode == "hfss":
             positions = [[-connector_l-h_gap, -self.connector_height/2],
                          [h_gap, -self.connector_height/2]]
             dimensions = [[connector_l, self.connector_height],
@@ -139,8 +138,10 @@ class Transmon(DrawableElement):
     cutout_width: str
     cutout_height: str
 
-    # Elements taken from parents
     fillet: str
+
+    track: str
+    gap: str
 
     def _draw(self, body: Body, **kwargs) -> None:
         with body([0, 0], [0, 1]):
@@ -186,32 +187,23 @@ class Qubit(DrawableElement):
 
     def _draw(self, body: Body, **kwargs):
         with body([self.x_pos, self.y_pos]):
-            self.transmon.draw(body, **kwargs)
+            self.transmon.draw(body=body, **kwargs)
 
 
-class Chip(DrawableElement):
-    qubit: Variation[Qubit]
+class ChipDesign(DrawableElement):
+    qubit: Qubit
 
     chip_width: str
     chip_height: str
     chip_thickness: str
     vacuum_thickness: str
 
-    fillet: str
-    track: str
-    gap: str
+    def _draw(self, body: Body, **kwargs) -> None:
+        if self._mode != "hfss":
+            raise ValueError("ChipDesign must be used for hfss simulation.")
 
-    # Elements defined by _draw
-    _ground_plane: Entity
-
-    def _draw(self, body: Body, **kwargs):
         with body([self.chip_width/2, self.chip_height/2], [1, 0]):
-            # self.qubit.draw(body, **kwargs)
-            if len(self.qubit__dct) == 0:
-                self.qubit.draw(body, **kwargs)
-            else:
-                for qbt in self.qubit__dct.values():
-                    qbt.draw(body, **kwargs)
+            self.qubit.draw(body=body, **kwargs)
 
         self._ground_plane = body.rect(
             [0, 0], [self.chip_width, self.chip_height], layer=TRACK)
@@ -225,29 +217,55 @@ class Chip(DrawableElement):
         self._ground_plane.unite(body.entities[TRACK])
         self._ground_plane.assign_perfect_E()
 
-        if body.pm.mode == 'gds':
-            body.pm.generate_gds("example", self.name, max_points=199)
+        pos_sapphire = [0, 0, 0]
+        size_sapphire = [self.chip_width,
+                         self.chip_height,
+                         -self.chip_thickness]
+        body.box(pos_sapphire,
+                 size_sapphire,
+                 material='silicone',
+                 name='substrate_0')
+        pos_vac = [0, 0, 0]
+        size_vac = [self.chip_width,
+                    self.chip_height,
+                    self.vacuum_thickness]
+        vacuum = body.box(pos_vac,
+                          size_vac,
+                          material='vacuum',
+                          name='top_box_0')
+        pos_vac = [0, 0, -self.chip_thickness]
+        size_vac = [self.chip_width,
+                    self.chip_height,
+                    -self.vacuum_thickness]
+        vacuum.unite(body.box(pos_vac, size_vac, material='vacuum',
+                              name='top_box_1'))
 
-        if body.pm.mode == 'hfss':
-            pos_sapphire = [0, 0, 0]
-            size_sapphire = [self.chip_width,
-                             self.chip_height,
-                             -self.chip_thickness]
-            body.box(pos_sapphire,
-                     size_sapphire,
-                     material='silicone',
-                     name='substrate_0')
-            pos_vac = [0, 0, 0]
-            size_vac = [self.chip_width,
-                        self.chip_height,
-                        self.vacuum_thickness]
-            vacuum = body.box(pos_vac,
-                              size_vac,
-                              material='vacuum',
-                              name='top_box_0')
-            pos_vac = [0, 0, -self.chip_thickness]
-            size_vac = [self.chip_width,
-                        self.chip_height,
-                        -self.vacuum_thickness]
-            vacuum.unite(body.box(pos_vac, size_vac, material='vacuum',
-                                  name='top_box_1'))
+
+class Chip(DrawableElement):
+    qubit: Variation[Qubit]
+
+    chip_width: str
+    chip_height: str
+
+    # Elements defined by _draw
+    _ground_plane: Entity
+
+    def _draw(self, body: Body, **kwargs) -> None:
+        if self._mode != "gds":
+            raise ValueError("Chip must be used for gds generation.")
+        with body([self.chip_width/2, self.chip_height/2], [1, 0]):
+            self.qubit.draw(body=body, **kwargs)
+
+        self._ground_plane = body.rect(
+            [0, 0], [self.chip_width, self.chip_height], layer=TRACK)
+
+        gap_el = body.entities.get(GAP, None)
+        if len(gap_el) >= 1:
+            gap_el[0].unite(gap_el[1:])
+
+        if gap_el is not None:
+            self._ground_plane.subtract(gap_el)
+        self._ground_plane.unite(body.entities[TRACK])
+        self._ground_plane.assign_perfect_E()
+
+        body.pm.generate_gds("example", self.name, max_points=199)

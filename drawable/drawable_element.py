@@ -1,15 +1,14 @@
 import yaml
-from typing import List, Dict, Union, Any, Generic, TypeVar
+from typing import List, Dict, Union, Any, Mapping, TypeVar, Generic, Tuple
 from copy import copy, deepcopy
-import collections.abc
 
 from HFSSdrawpy import Modeler, Body
 from HFSSdrawpy.utils import parse_entry
 
 
-def deep_update(d, u):
+def deep_update(d: Dict[str, Any], u: Dict[str, Any]) -> Dict[str, Any]:
     for k, v in u.items():
-        if isinstance(v, collections.abc.Mapping):
+        if isinstance(v, Mapping):
             d[k] = deep_update(d.get(k, {}), v)
         else:
             d[k] = v
@@ -22,7 +21,7 @@ class ImplementationError(Exception):
 
 
 class DrawableElement:
-    _parent = None
+    _parent: "DrawableElement" = None
     _name: str
     to_draw: bool = True
 
@@ -50,29 +49,33 @@ class DrawableElement:
         params: Union[Dict[str, Any], str],
         modeler: Modeler,
         name: str,
-        parent=None
+        parent: "DrawableElement" = None
     ) -> None:
 
-        if isinstance(params, str):
-            self._dict_params = self._load_dict_from_file(params)
-        else:
-            self._dict_params = params
+        if type(self).draw is not DrawableElement.draw:
+            raise ImplementationError(f"""
+                User should not override the draw method in class {type(self)}.
+                He should implement _draw instead.
+                """)
 
         self._modeler = modeler
         self._mode = "None" if self._modeler is None else self._modeler.mode
         self._name = name
         self._parent = parent
 
-        if type(self).draw is not DrawableElement.draw:
-            raise ImplementationError(
-                "User should not override the draw method.\n" +
-                "He should implement_draw instead.")
+        if isinstance(params, str):
+            self._dict_params = self._load_dict_from_file(params)
+        else:
+            self._dict_params = params
 
-        attr_to_set = self._parse_dict_params()
-        for k in attr_to_set:
+        attr_to_set, vars_to_set = self._parse_dict_params()
+
+        for k in attr_to_set + vars_to_set:
             if isinstance(self._dict_params[k], str):
                 self._dict_params[k] = self._load_dict_from_file(
                     self._dict_params[k])
+
+        for k in attr_to_set:
             setattr(
                 self, k, self.__annotations__[k](
                     self._dict_params[k],
@@ -82,7 +85,9 @@ class DrawableElement:
                 )
             )
 
-        variations = {}
+        for k in vars_to_set:
+            setattr(self, k, self.__annotations__[k](variation={}))
+
         for k, sub_dict in self._dict_params.items():
             splt = k.split("__")
             if len(splt) > 2:
@@ -91,23 +96,27 @@ class DrawableElement:
                     "contain maximum one '__'."
                 )
             if len(splt) == 2 and splt[1].isdigit():
-                variations
                 self._create_variation(sub_dict, *splt)
 
-    def _parse_dict_params(self) -> List[str]:
+    def _parse_dict_params(self) -> Tuple[List[str], List[str]]:
         attr_to_set = []
-        for k, cls_name in self.__annotations__.items():
+        vars_to_set = []
+        for k, cls_name in self.__annotations__.items():            
             if k in self._dict_params:
-                if not issubclass(cls_name, DrawableElement):
-                    self._set_element(k, self._dict_params[k])
+                if hasattr(cls_name, '__origin__'):
+                    if issubclass(cls_name.__origin__, Variation):
+                        vars_to_set.append(k)
                 else:
-                    attr_to_set.append(k)
+                    if issubclass(cls_name, DrawableElement):
+                        attr_to_set.append(k)
+                    else:
+                        self._set_element(k, self._dict_params[k])
             elif not k.startswith("_"):
                 if not k.endswith("__dct"):
                     self._search_in_parents(k)
                 else:
                     setattr(self, k, {})
-        return attr_to_set
+        return attr_to_set, vars_to_set
 
     def _set_element(self, key: str, value: Any) -> None:
         if key.endswith("__np") or self._mode == "None":
@@ -144,24 +153,24 @@ class DrawableElement:
             dict_par = yaml.safe_load(read)
         return dict_par
 
-    def _create_variation(self, sub_dict, kv, indv):
-        attr_dict = getattr(self, kv+"__dct", None)
-        if attr_dict is None:
+    def _create_variation(self, sub_dict: Dict[str, Any], kv: str, indv: int):
+        var_dict = getattr(self, kv, None)
+        if var_dict is None:
             raise ValueError(
                 f"To have variation '{kv}__{indv}', the attribute" +
-                f" '{kv}__dct' should be defined in class.")
+                f" '{kv}' should be defined in class.")
         if sub_dict is not None:
             variation = deep_update(
                 deepcopy(self._dict_params[kv]), sub_dict)
-        attr_dict[indv] = self.__annotations__[kv](
-            variation,
-            self._modeler,
-            self._name + f"_{kv}_{indv}",
-            parent=self
-        )
+        var_dict[indv] = self.__annotations__[kv].__args__[0](
+                variation,
+                self._modeler,
+                self._name + f"_{kv}_{indv}",
+                parent=self
+            )
 
     @property
-    def children(self) -> List:
+    def children(self) -> List["DrawableElement"]:
         children = []
         for k in self.__dict__:
             if isinstance(self.__dict__[k], DrawableElement) and k != "parent":
@@ -169,11 +178,11 @@ class DrawableElement:
         return children
 
     @property
-    def parent(self):
+    def parent(self) -> "DrawableElement":
         return self._parent
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self._name
 
     def _draw(self, body: Body, **kwargs) -> None:
@@ -194,10 +203,21 @@ _T = TypeVar("_T", bound=DrawableElement)
 
 class Variation(Generic[_T]):
     variation: Dict[int, _T]
-    
-    def __init__(self, variation: Dict[int, _T]):
+    to_draw: bool = True
+
+    def __init__(
+        self,
+        variation: Dict[int, _T],
+    ):
         self._variations = variation
 
-    def draw(self):
-        for el in self.variations.values():
-            el.draw()
+    def __setitem__(self, key: int, value: _T):
+        self._variations[key] = value
+
+    def __getitem__(self, key: int) -> _T:
+        return self._variations[key]
+
+    def draw(self, **kwargs) -> None:
+        if self.to_draw:
+            for el in self._variations.values():
+                el.draw(**kwargs)

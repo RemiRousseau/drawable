@@ -4,6 +4,8 @@ transmon:
     offset: 0um
   cutout_height: 1mm
   cutout_width: 1mm
+  fillet: 10um
+  gap: 10um
   junction:
     connector_height: 1.5um
     finger_gap: 0.25um
@@ -18,5 +20,6 @@ transmon:
   pad_height: 300um
   pad_spacing: 100um
   pad_width: 500um
+  track: 20um
 x_pos: 0um
 y_pos: 0um

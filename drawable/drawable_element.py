@@ -115,10 +115,7 @@ class DrawableElement:
                     else:
                         self._set_element(k, cls_name, self._dict_params[k])
             elif not k.startswith("_"):
-                if not k.endswith("__dct"):
-                    self._search_in_parents(k)
-                else:
-                    setattr(self, k, {})
+                self._search_in_parents(k)
         return attr_to_set, vars_to_set
 
     def _set_element(self, key: str, cls_name: type, value: Any) -> None:
@@ -136,7 +133,7 @@ class DrawableElement:
         if cls_name in [int, float, bool] or self._mode == "None":
             setattr(self, key, value_list)
         elif self._mode == "gds":
-            setattr(self, key, Vector(value_list))
+            setattr(self, key, Vector([parse_entry(v) for v in value_list]))
         else:
             n_el = len(value_list)
             labels = ["x", "y", "z"] if n_el < 4 else range(n_el)

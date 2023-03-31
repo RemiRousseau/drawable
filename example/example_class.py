@@ -83,12 +83,12 @@ class Junction(DrawableElement):
             marg_vect = Vector([self.margin]*2)
 
             for p, d, n in zip(positions, dimensions, names_ad):
-                body.rect(p, d, name=self.name+n, layer=self.layer__np)
+                body.rect(p, d, name=self.name+n, layer=self.layer)
                 marged_el.append(body.rect(
                     Vector(p)-marg_vect,
                     Vector(d)+2*marg_vect,
                     name=self.name+n+"_marged",
-                    layer=self.layer_undercut__np))
+                    layer=self.layer_undercut))
 
             undercut_1 = body.rect(
                 [-self.finger_width - h_gap - self.undercut_width,
@@ -98,7 +98,7 @@ class Junction(DrawableElement):
                  self.undercut_width + self.finger_length +
                  self.connector_height],
                 name=self.name+"_undercut_down",
-                layer=self.layer_undercut__np)
+                layer=self.layer_undercut)
 
             undercut_2 = body.rect(
                 [-h_gap+self.finger_gap - self.undercut_width,
@@ -107,7 +107,7 @@ class Junction(DrawableElement):
                 [self.finger_length + self.undercut_width-self.margin,
                  2*self.undercut_width+self.finger_width],
                 name=self.name+"_undercut_right",
-                layer=self.layer_undercut__np)
+                layer=self.layer_undercut)
             undercut_1.unite(undercut_2)
             undercut_1.subtract(marged_el)
 
@@ -129,7 +129,9 @@ class CouplingPad(DrawableElement):
                    -self.pad_spacing/2 - self.offset]):
             body.rect_center(
                 [-self.track/2, -(self.pad_dims[1] - self.offset)/2],
-                [self.track, self.pad_dims[1] - self.offset]
+                [self.track, self.pad_dims[1] - self.offset],
+                layer=TRACK,
+                name=self._name
             )
 
 
@@ -206,19 +208,19 @@ class ChipDesign(DrawableElement):
         self._ground_plane.assign_perfect_E()
 
         pos_sapphire = [0, 0, 0]
-        size_sapphire = [*self.dims, -self.thickness]
+        size_sapphire = [self.dims[0], self.dims[1], -self.thickness]
         body.box(pos_sapphire,
                  size_sapphire,
-                 material='silicone',
+                 material='silicon',
                  name='substrate_0')
         pos_vac = [0, 0, 0]
-        size_vac = [*self.dims, self.vacuum_thickness]
+        size_vac = [self.dims[0], self.dims[1], self.vacuum_thickness]
         vacuum = body.box(pos_vac,
                           size_vac,
                           material='vacuum',
                           name='top_box_0')
         pos_vac = [0, 0, -self.thickness]
-        size_vac = [*self.dims, -self.vacuum_thickness]
+        size_vac = [self.dims[0], self.dims[1], -self.vacuum_thickness]
         vacuum.unite(body.box(pos_vac, size_vac, material='vacuum',
                               name='top_box_1'))
 
@@ -234,6 +236,7 @@ class Chip(DrawableElement):
     def _draw(self, body: Body, **kwargs) -> None:
         if self._mode != "gds":
             raise ValueError("Chip must be used for gds generation.")
+
         with body(self.dims/2, [1, 0]):
             self.qubit.draw(body=body, **kwargs)
 

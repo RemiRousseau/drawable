@@ -4,7 +4,7 @@ from example_class import Chip
 pm = Modeler('gds')
 body = Body(pm, 'chip')
 
-chip = Chip(params="example/chip_params.yaml",
+chip = Chip(params="example/yaml_files/chip_params.yaml",
             modeler=pm,
             name="chip")
 

@@ -3,7 +3,7 @@ from typing import List, Dict, Union, Any, Mapping, TypeVar, Generic, Tuple
 from copy import copy, deepcopy
 
 from HFSSdrawpy import Modeler, Body
-from HFSSdrawpy.utils import parse_entry
+from HFSSdrawpy.utils import parse_entry, Vector
 
 
 def deep_update(d: Dict[str, Any], u: Dict[str, Any]) -> Dict[str, Any]:
@@ -101,16 +101,19 @@ class DrawableElement:
     def _parse_dict_params(self) -> Tuple[List[str], List[str]]:
         attr_to_set = []
         vars_to_set = []
-        for k, cls_name in self.__annotations__.items():            
+        for k, cls_name in self.__annotations__.items():
             if k in self._dict_params:
                 if hasattr(cls_name, '__origin__'):
                     if issubclass(cls_name.__origin__, Variation):
                         vars_to_set.append(k)
+                    elif issubclass(cls_name.__origin__, List):
+                        self._set_list(
+                            k, cls_name.__args__[0], self._dict_params[k])
                 else:
                     if issubclass(cls_name, DrawableElement):
                         attr_to_set.append(k)
                     else:
-                        self._set_element(k, self._dict_params[k])
+                        self._set_element(k, cls_name, self._dict_params[k])
             elif not k.startswith("_"):
                 if not k.endswith("__dct"):
                     self._search_in_parents(k)
@@ -118,17 +121,34 @@ class DrawableElement:
                     setattr(self, k, {})
         return attr_to_set, vars_to_set
 
-    def _set_element(self, key: str, value: Any) -> None:
-        if key.endswith("__np") or self._mode == "None":
+    def _set_element(self, key: str, cls_name: type, value: Any) -> None:
+        if cls_name in [int, float, bool] or self._mode == "None":
             setattr(self, key, value)
-        elif key.endswith("__n") or self._mode == "gds":
+        elif self._mode == "gds":
             setattr(self, key, parse_entry(value))
         else:
             setattr(
                 self,
                 key,
-                self._modeler.set_variable(
-                    value, name=self.name + "_" + key))
+                self._modeler.set_variable(value, name=self.name + "_" + key))
+
+    def _set_list(self, key: str, cls_name: type, value_list: Any) -> None:
+        if cls_name in [int, float, bool] or self._mode == "None":
+            setattr(self, key, value_list)
+        elif self._mode == "gds":
+            setattr(self, key, Vector(value_list))
+        else:
+            n_el = len(value_list)
+            labels = ["x", "y", "z"] if n_el < 4 else range(n_el)
+            setattr(
+                self,
+                key,
+                Vector([
+                    self._modeler.set_variable(
+                        v, name=f"{self.name}_{key}_{n}")
+                    for n, v in zip(labels, value_list)
+                ])
+            )
 
     def _search_in_parents(self, key: str) -> None:
         local_parent = copy(self._parent)
@@ -173,7 +193,10 @@ class DrawableElement:
     def children(self) -> List["DrawableElement"]:
         children = []
         for k in self.__dict__:
-            if isinstance(self.__dict__[k], DrawableElement) and k != "parent":
+            if (
+                isinstance(self.__dict__[k], DrawableElement) and
+                not k.startswith("_")
+            ):
                 children.append(k)
         return children
 

@@ -1,5 +1,4 @@
-chip_height: 10mm
-chip_thickness: 300um
-chip_width: 10mm
-qubit: "example/qubit_params.yaml"
+dims: [10mm, 10mm]
+thickness: 300um
+qubit: "example/yaml_files/qubit_params.yaml"
 vacuum_thickness: 3mm

@@ -1,4 +1,5 @@
 import yaml
+import logging
 from typing import List, Dict, Union, Any, Mapping, TypeVar, Generic, Tuple
 from copy import copy, deepcopy
 
@@ -20,7 +21,11 @@ class ImplementationError(Exception):
     pass
 
 
+_TL = TypeVar("_TL")
+
+
 class DrawableElement:
+    _folder: str
     _parent: "DrawableElement" = None
     _name: str
     to_draw: bool = True
@@ -46,6 +51,7 @@ class DrawableElement:
 
     def __init__(
         self,
+        folder: str,
         params: Union[Dict[str, Any], str],
         modeler: Modeler,
         name: str,
@@ -58,6 +64,9 @@ class DrawableElement:
                 He should implement _draw instead.
                 """)
 
+        logging.debug(f"Initializing {name}")
+
+        self._folder = folder
         self._modeler = modeler
         self._mode = "None" if self._modeler is None else self._modeler.mode
         self._name = name
@@ -78,6 +87,7 @@ class DrawableElement:
         for k in attr_to_set:
             setattr(
                 self, k, self.__annotations__[k](
+                    self._folder,
                     self._dict_params[k],
                     self._modeler,
                     self._name + "_" + k,
@@ -129,23 +139,33 @@ class DrawableElement:
                 key,
                 self._modeler.set_variable(value, name=self.name + "_" + key))
 
-    def _set_list(self, key: str, cls_name: type, value_list: Any) -> None:
-        if cls_name in [int, float, bool] or self._mode == "None":
-            setattr(self, key, value_list)
-        elif self._mode == "gds":
-            setattr(self, key, Vector([parse_entry(v) for v in value_list]))
+    def _list_attr(
+        self,
+        cls_name: type,
+        value_list: _TL,
+        index: int = 0
+    ) -> _TL:
+        if hasattr(cls_name, '__origin__'):
+            return [
+                self._list_attr(cls_name.__args__[0], el, i)
+                for i, el in enumerate(value_list)
+            ]
         else:
-            n_el = len(value_list)
-            labels = ["x", "y", "z"] if n_el < 4 else range(n_el)
-            setattr(
-                self,
-                key,
-                Vector([
+            if cls_name in [int, float, bool] or self._mode == "None":
+                return value_list
+            elif self._mode == "gds":
+                return Vector([parse_entry(v) for v in value_list])
+            else:
+                n_el = len(value_list)
+                labels = ["x", "y", "z"] if n_el < 4 else range(n_el)
+                return Vector([
                     self._modeler.set_variable(
-                        v, name=f"{self.name}_{key}_{n}")
+                        v, name=f"{self.name}_{index}_{n}")
                     for n, v in zip(labels, value_list)
                 ])
-            )
+
+    def _set_list(self, key: str, cls_name: type, value_list: Any) -> None:
+        setattr(self, key, self._list_attr(cls_name, value_list))
 
     def _search_in_parents(self, key: str) -> None:
         local_parent = copy(self._parent)
@@ -165,7 +185,7 @@ class DrawableElement:
             raise ValueError(
                 f"Element {self._name} has dict params file that " +
                 "does not ends with '.yaml'")
-        with open(file_path, 'r') as file:
+        with open(f"{self._folder}/{file_path}", 'r') as file:
             read = file.read()
             dict_par = yaml.safe_load(read)
         return dict_par
@@ -180,6 +200,7 @@ class DrawableElement:
             variation = deep_update(
                 deepcopy(self._dict_params[kv]), sub_dict)
         var_dict[indv] = self.__annotations__[kv].__args__[0](
+                self._folder,
                 variation,
                 self._modeler,
                 self._name + f"_{kv}_{indv}",
@@ -215,26 +236,27 @@ class DrawableElement:
 
     def draw(self, body: Body, **kwargs) -> None:
         if self.to_draw:
+            logging.debug(f"Drawing {self.name}")
             self._draw(body, **kwargs)
 
 
-_T = TypeVar("_T", bound=DrawableElement)
+_Tvar = TypeVar("_Tvar", bound=DrawableElement)
 
 
-class Variation(Generic[_T]):
-    variation: Dict[int, _T]
+class Variation(Generic[_Tvar]):
+    variation: Dict[int, _Tvar]
     to_draw: bool = True
 
     def __init__(
         self,
-        variation: Dict[int, _T],
+        variation: Dict[int, _Tvar],
     ):
         self._variations = variation
 
-    def __setitem__(self, key: int, value: _T):
+    def __setitem__(self, key: int, value: _Tvar):
         self._variations[key] = value
 
-    def __getitem__(self, key: int) -> _T:
+    def __getitem__(self, key: int) -> _Tvar:
         return self._variations[key]
 
     def draw(self, **kwargs) -> None:

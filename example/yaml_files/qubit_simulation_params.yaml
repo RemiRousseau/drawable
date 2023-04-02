@@ -1,4 +1,4 @@
 dims: [10mm, 10mm]
 thickness: 300um
-qubit: "example/yaml_files/qubit_params.yaml"
+qubit: "qubit_params.yaml"
 vacuum_thickness: 3mm

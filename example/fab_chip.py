@@ -4,8 +4,11 @@ from example_class import Chip
 pm = Modeler('gds')
 body = Body(pm, 'chip')
 
-chip = Chip(params="example/yaml_files/chip_params.yaml",
-            modeler=pm,
-            name="chip")
+chip = Chip(
+    folder="example/yaml_files",
+    params="chip_params.yaml",
+    modeler=pm,
+    name="chip"
+)
 
 chip.draw(body=body)

@@ -100,13 +100,12 @@ class DrawableElement:
 
         for k, sub_dict in self._dict_params.items():
             splt = k.split("__")
-            if len(splt) > 2:
-                raise ValueError(
-                    f"Variable {k} in config should " +
-                    "contain maximum one '__'."
-                )
-            if len(splt) == 2 and splt[1].isdigit():
-                self._create_variation(sub_dict, *splt)
+            if splt[-1].isdigit():
+                kv = splt[0]
+                for el in splt[1:-1]:
+                    kv += "__" + el
+                indv = int(splt[-1])
+                self._create_variation(sub_dict, kv, indv)
 
     def _parse_dict_params(self) -> Tuple[List[str], List[str]]:
         attr_to_set = []
@@ -196,9 +195,9 @@ class DrawableElement:
             raise ValueError(
                 f"To have variation '{kv}__{indv}', the attribute" +
                 f" '{kv}' should be defined in class.")
+        variation = deepcopy(self._dict_params[kv])
         if sub_dict is not None:
-            variation = deep_update(
-                deepcopy(self._dict_params[kv]), sub_dict)
+            variation = deep_update(variation, sub_dict)
         var_dict[indv] = self.__annotations__[kv].__args__[0](
                 self._folder,
                 variation,
@@ -225,6 +224,10 @@ class DrawableElement:
     @property
     def name(self) -> str:
         return self._name
+    
+    @property
+    def mode(self) -> str:
+        return self._mode
 
     def _draw(self, body: Body, **kwargs) -> None:
         for k in self.children:

@@ -247,17 +247,37 @@ class Variation(Generic[_Tvar]):
     variation: Dict[int, _Tvar]
     to_draw: bool = True
 
+    _len: int
+
     def __init__(
         self,
         variation: Dict[int, _Tvar],
     ):
         self._variations = variation
+        self._keys = list(self._variations.keys())
+        self._len = len(self._keys)
 
     def __setitem__(self, key: int, value: _Tvar):
+        is_in = key in self._variations
         self._variations[key] = value
+        if not is_in:
+            self._keys = list(self._variations.keys())
+            self._len += 1
 
     def __getitem__(self, key: int) -> _Tvar:
         return self._variations[key]
+
+    def __iter__(self) -> "Variation":
+        self._n_iter = 0
+        return self
+
+    def __next__(self) -> _Tvar:
+        if self._n_iter < self._len:
+            result = self._variations[self._keys[self._n_iter]]
+            self._n_iter += 1
+            return result
+        else:
+            raise StopIteration
 
     def draw(self, **kwargs) -> None:
         if self.to_draw:

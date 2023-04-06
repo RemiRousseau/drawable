@@ -190,6 +190,26 @@ class DrawableElement:
             dict_par = yaml.safe_load(read)
         return dict_par
 
+    def _complete_dict(self, sub_dict: Dict[str, Any]):
+        sub_dict = deepcopy(sub_dict)
+        res, to_pop = {}, []
+        for key, val in sub_dict.items():
+            if "." not in key:
+                res[key] = val
+                to_pop.append(key)
+        for el in to_pop:
+            sub_dict.pop(el)
+        for key, val in sub_dict.items():
+            splt = key.split(".")
+            local = res
+            for k in splt[:-1]:
+                print(k, local)
+                if k not in local:
+                    local[k] = {}
+                local = local[k]
+            local[splt[-1]] = val
+        return res
+
     def _create_variation(self, sub_dict: Dict[str, Any], kv: str, indv: int):
         var_dict = getattr(self, kv, None)
         if var_dict is None:
@@ -198,6 +218,7 @@ class DrawableElement:
                 f" '{kv}' should be defined in class.")
         variation = deepcopy(self._dict_params[kv])
         if sub_dict is not None:
+            sub_dict = self._complete_dict(sub_dict)
             variation = deep_update(variation, sub_dict)
         var_dict[indv] = self.__annotations__[kv].__args__[0](
                 self._folder,
@@ -229,6 +250,23 @@ class DrawableElement:
     @property
     def mode(self) -> str:
         return self._mode
+
+    def _create_dictionary(self) -> Dict[str, str]:
+        dico_params = {}
+        for key, attr in self.__dict__.items():
+            if not key.startswith("_"):
+                if isinstance(attr, DrawableElement):
+                    dico_params[key] = attr._create_dictionary()
+                else:
+                    dico_params[key] = ""
+        return dico_params
+
+    def create_yaml_file(self, filename: str, folder: str = None) -> None:
+        if folder is None:
+            folder = self._folder
+        print(self._create_dictionary())
+        with open(self._folder+"/"+filename, 'w') as file:
+            yaml.safe_dump(self._create_dictionary(), file)
 
     def _draw(self, body: Body, **kwargs) -> None:
         for k in self.children:

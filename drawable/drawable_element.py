@@ -1,6 +1,7 @@
 import yaml
 import logging
-from typing import List, Dict, Union, Any, Mapping, TypeVar, Generic, Tuple
+from typing import (List, Dict, Union, Any, Mapping, TypeVar, Generic, Tuple,
+                    Iterable)
 from copy import copy, deepcopy
 
 from HFSSdrawpy import Modeler, Body
@@ -224,7 +225,7 @@ class DrawableElement:
     @property
     def name(self) -> str:
         return self._name
-    
+
     @property
     def mode(self) -> str:
         return self._mode
@@ -281,6 +282,9 @@ class Variation(Generic[_Tvar]):
             return result
         else:
             raise StopIteration
+
+    def keys(self) -> Iterable:
+        return self._variations.keys()
 
     def draw(self, **kwargs) -> None:
         if self.to_draw:

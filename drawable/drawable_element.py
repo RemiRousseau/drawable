@@ -26,9 +26,32 @@ _TL = TypeVar("_TL")
 
 
 class DrawableElement:
-    _folder: str
+    """Class used to draw with HFSSDrawpy object oriented.
+
+    Attributes:
+        _folder: The folder where to look for yaml files.
+        _parent: Parent class of thype DrawableElement.
+        _name: Name of element.
+        _mode: Mode of drawing.
+        _modeler: Modeler used for drawing.
+        to_draw: Wheter to draw the element.
+        Attributes sets in class file.
+
+    Methods:
+        children: Returns list of childrens.
+        parent: Returns parent.
+        name: Returns name.
+        mode: Returns mode.
+        create_yaml_file: Creates an empty yaml file.
+        _draw: Classe to be redefined in element classes.
+        draw: Draw the element.
+    """
+
+    _folder: str = None
     _parent: "DrawableElement" = None
-    _name: str
+    _name: str = None
+    _mode: str = None
+    _modeler: Modeler = None
     to_draw: bool = True
 
     def __repr__(self) -> str:
@@ -58,6 +81,14 @@ class DrawableElement:
         name: str,
         parent: "DrawableElement" = None
     ) -> None:
+        """
+        Parameters:
+            folder: The folder containing yaml files.
+            params: Dictionary containing the parameters of path to yaml file.
+            modeler: Modeler used to_draw and set_variables.
+            name: Name of the object.
+            parent: Parent of the object.
+        """
 
         if type(self).draw is not DrawableElement.draw:
             raise ImplementationError(f"""
@@ -73,18 +104,22 @@ class DrawableElement:
         self._name = name
         self._parent = parent
 
+        # If params is a yaml file, load it.
         if isinstance(params, str):
             self._dict_params = self._load_dict_from_file(params)
         else:
             self._dict_params = params
 
+        # Run through the dictionary and set variables.
         attr_to_set, vars_to_set = self._parse_dict_params()
 
+        # Load dictionary of children defined through a yaml.
         for k in attr_to_set + vars_to_set:
             if isinstance(self._dict_params[k], str):
                 self._dict_params[k] = self._load_dict_from_file(
                     self._dict_params[k])
 
+        # Set children attributes
         for k in attr_to_set:
             setattr(
                 self, k, self.__annotations__[k](
@@ -96,9 +131,11 @@ class DrawableElement:
                 )
             )
 
+        # Set variations object
         for k in vars_to_set:
             setattr(self, k, self.__annotations__[k](variation={}))
 
+        # Set variation elements
         for k, sub_dict in self._dict_params.items():
             splt = k.split("__")
             if splt[-1].isdigit():
@@ -109,6 +146,15 @@ class DrawableElement:
                 self._create_variation(sub_dict, kv, indv)
 
     def _parse_dict_params(self) -> Tuple[List[str], List[str]]:
+        """Function ro parse the dictionary parameters. Run through the
+        attributes defined in class. Typing is used to determine how to set
+        the attributes.
+
+        Returns:
+            attr_to_set: Attributes of type DrawableElement to set.
+            vars_to_set: Variations to set.
+        """
+
         attr_to_set = []
         vars_to_set = []
         for k, cls_name in self.__annotations__.items():
@@ -129,6 +175,13 @@ class DrawableElement:
         return attr_to_set, vars_to_set
 
     def _set_element(self, key: str, cls_name: type, value: Any) -> None:
+        """Set an attribute of the class.
+
+        Args:
+            key (str): Key of the element in _dict_params.
+            cls_name (type): Type of the element.
+            value (Any): Value from _dict_params.
+        """
         if cls_name in [int, float, bool] or self._mode == "None":
             setattr(self, key, value)
         elif self._mode == "gds":
@@ -145,6 +198,17 @@ class DrawableElement:
         value_list: _TL,
         index: int = 0
     ) -> _TL:
+        """Create parsed list of the element.
+
+        Args:
+            cls_name (type): Type of the attribute to set.
+            value_list (_TL): List of values taken from _dict_params.
+            index (int, optional): Index if multiple instances of the element.
+                                   Defaults to 0.
+
+        Returns:
+            _TL: Iterable of parsed elements.
+        """
         if hasattr(cls_name, '__origin__'):
             return [
                 self._list_attr(cls_name.__args__[0], el, i)
@@ -168,6 +232,14 @@ class DrawableElement:
         setattr(self, key, self._list_attr(cls_name, value_list))
 
     def _search_in_parents(self, key: str) -> None:
+        """Recursively run through the parents to find an attribute.
+
+        Args:
+            key (str): Key to search.
+
+        Raises:
+            KeyError: Raised if element is nowhere to be found in parents.
+        """
         local_parent = copy(self._parent)
         while local_parent is not None:
             if key in local_parent.__dict__:
@@ -181,6 +253,17 @@ class DrawableElement:
             + "in it's parents.")
 
     def _load_dict_from_file(self, file_path: str) -> Dict[str, Any]:
+        """Load Yaml file for an attribute parameters.
+
+        Args:
+            file_path (str): file_path that should end with '.yaml'.
+
+        Raises:
+            ValueError: If file_path do not end with '.yaml'.
+
+        Returns:
+            Dict[str, Any]: Loaded dictionary.
+        """
         if not file_path.endswith(".yaml"):
             raise ValueError(
                 f"Element {self._name} has dict params file that " +
@@ -190,7 +273,15 @@ class DrawableElement:
             dict_par = yaml.safe_load(read)
         return dict_par
 
-    def _complete_dict(self, sub_dict: Dict[str, Any]):
+    def _complete_dict(self, sub_dict: Dict[str, Any]) -> Dict[str, Any]:
+        """Helper function to handle '.' definition of element in variations.
+
+        Args:
+            sub_dict (Dict[str, Any]): Dictionnary taken from variation.
+
+        Returns:
+            Dict[str, Any]: Dictionnary completed with full structure.
+        """
         sub_dict = deepcopy(sub_dict)
         res, to_pop = {}, []
         for key, val in sub_dict.items():
@@ -211,6 +302,17 @@ class DrawableElement:
         return res
 
     def _create_variation(self, sub_dict: Dict[str, Any], kv: str, indv: int):
+        """Create copies of element to set in variation and update them with 
+        the variations dictionaries.
+
+        Args:
+            sub_dict (Dict[str, Any]): Variation dictionary
+            kv (str): key of attribute to variate.
+            indv (int): Index of variation.
+
+        Raises:
+            ValueError: When the core element is not defined.
+        """
         var_dict = getattr(self, kv, None)
         if var_dict is None:
             raise ValueError(
@@ -230,6 +332,11 @@ class DrawableElement:
 
     @property
     def children(self) -> List["DrawableElement"]:
+        """Returns the list of children of this DrawableElement.
+
+        Returns:
+            List["DrawableElement"]: Childrens.
+        """
         children = []
         for k in self.__dict__:
             if (
@@ -252,6 +359,11 @@ class DrawableElement:
         return self._mode
 
     def _create_dictionary(self) -> Dict[str, str]:
+        """Helper function to wwrite the empty yaml file.
+
+        Returns:
+            Dict[str, str]: Dictionary of class structure.
+        """
         dico_params = {}
         for key, attr in self.__dict__.items():
             if not key.startswith("_"):
@@ -262,13 +374,23 @@ class DrawableElement:
         return dico_params
 
     def create_yaml_file(self, filename: str, folder: str = None) -> None:
+        """Helper function to create a yaml file with the class' structure.
+        One should keep in mind that elements defined in parents will be
+        redifined in children with this class.
+
+        Args:
+            filename (str): file to be created.
+            folder (str, optional): Folder in wich file should be created.
+        """
         if folder is None:
             folder = self._folder
-        print(self._create_dictionary())
         with open(self._folder+"/"+filename, 'w') as file:
             yaml.safe_dump(self._create_dictionary(), file)
 
     def _draw(self, body: Body, **kwargs) -> None:
+        """Core function to draw an element. This is the one that should be
+        overwritten in the classes deriving from DrawableElement.
+        """
         for k in self.children:
             attribute = getattr(self, k)
             attribute.draw(body, **kwargs)
@@ -277,6 +399,8 @@ class DrawableElement:
                 f"_draw() of {self.__class__.__name__} is not implemented")
 
     def draw(self, body: Body, **kwargs) -> None:
+        """Call _draw if if object is 'to_draw'.
+        """
         if self.to_draw:
             logging.debug(f"Drawing {self.name}")
             self._draw(body, **kwargs)
@@ -286,6 +410,9 @@ _Tvar = TypeVar("_Tvar", bound=DrawableElement)
 
 
 class Variation(Generic[_Tvar]):
+    """Class to handle variation of an element.
+    """
+    
     variation: Dict[int, _Tvar]
     to_draw: bool = True
 

@@ -1,0 +1,48 @@
+dims:
+- 10mm
+- 10mm
+qubit:
+  pos:
+  - 0um
+  - 0um
+  transmon:
+    coupling_pad:
+      dist: 40um
+      offset: 0um
+    cutout_dims:
+    - 1mm
+    - 1mm
+    fillet: 10um
+    gap: 10um
+    junction:
+      connector_height: 1.5um
+      finger_gap: 0.25um
+      finger_length: 2.8um
+      finger_width: 0.3um
+      layer: 10
+      layer_undercut: 11
+      lj: 32.69nH
+      margin: 50nm
+      ratio_finger_width: 1.5
+      undercut_width: 0.7um
+    pad_dims:
+    - 500um
+    - 300um
+    pad_spacing: 100um
+    track: 20um
+qubit__0:
+  pos:
+  - -1mm
+  - 0um
+  transmon:
+    pad_dims:
+    - 500um
+    - 200um
+qubit__1:
+  pos:
+  - 1mm
+  - 0um
+  transmon:
+    pad_dims:
+    - 500um
+    - 100um

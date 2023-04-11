@@ -1,10 +1,10 @@
 dims: [10mm, 10mm]
 qubit: qubit_params.yaml
-qubit__1:
+qubit__0:
   transmon:
     pad_dims: [500um, 200um]
   pos: [-1mm, 0um]
-qubit__2:
+qubit__1:
   transmon:
     pad_dims: [500um, 100um]
   pos: [1mm, 0um]

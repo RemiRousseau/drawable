@@ -302,7 +302,7 @@ class DrawableElement:
         return res
 
     def _create_variation(self, sub_dict: Dict[str, Any], kv: str, indv: int):
-        """Create copies of element to set in variation and update them with 
+        """Create copies of element to set in variation and update them with
         the variations dictionaries.
 
         Args:
@@ -387,6 +387,93 @@ class DrawableElement:
         with open(self._folder+"/"+filename, 'w') as file:
             yaml.safe_dump(self._create_dictionary(), file)
 
+    def _check_existing_path(self, path: str) -> bool:
+        local_attr = self
+        splt = path.split(".")
+        for k in splt:
+            if isinstance(local_attr, Variation):
+                local_attr = local_attr[list(local_attr.keys())[0]]
+            local_attr = getattr(local_attr, k, None)
+            if local_attr is None:
+                attrs = [el for el in dir(local_attr)
+                         if not el.startswith("_")]
+                raise ValueError(
+                    f"Path of variation {path} does not exist at {k}." +
+                    f"The possiblities are {attrs}")
+        return True
+
+    def _create_dictionary_variation(
+        self,
+        sub_key: str,
+        sub_len: int,
+        sub_variation: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        result = {}
+        for ind in range(sub_len):
+            result[f"{sub_key}__{ind}"] = {}
+            for k, var_lst in sub_variation.items():
+                splt = k.split(".")
+                if splt[0] != sub_key:
+                    raise ImplementationError(
+                        f"Subvariation ({splt}) is not for the right key " +
+                        "({sub_key})")
+                local = result[f"{sub_key}__{ind}"]
+                for k in splt[1:-1]:
+                    if k not in local:
+                        local[k] = {}
+                    local = local[k]
+                if splt[-1] in local:
+                    raise ValueError("Same variable is sweeped twice.")
+                local[splt[-1]] = var_lst[ind]
+        return result
+
+    def create_variation_yaml_file(
+        self,
+        variation: Dict[str, Iterable],
+        filename: str,
+        folder: str = None
+    ) -> None:
+        """Helper function to write a variation yaml file based on current
+        defining yaml files.
+
+        Variation is a dictionary:
+            keys are path in the parameters dictionary. For example
+            'transmon.junction.lj'
+            values are Iterable of same lengths."""
+
+        dict_vars_len = {}
+        dict_vars_div = {}
+        for k, v in variation.items():
+            self._check_existing_path(k)
+            k_0 = k.split(".")[0]
+            if k_0 in dict_vars_len:
+                if len(v) != dict_vars_len[k_0]:
+                    raise ValueError(
+                        f"All variation of {k_0} should be the same lengths.")
+                dict_vars_div[k_0][k] = v
+            else:
+                dict_vars_len[k_0] = len(v)
+                dict_vars_div[k_0] = {k: v}
+
+        yaml_dict = deepcopy(self._dict_params)
+        to_pop = []
+        for k in yaml_dict.keys():
+            splt = k.split("__")
+            if splt[-1].isdigit():
+                to_pop.append(k)
+        for k in to_pop:
+            yaml_dict.pop(k)
+
+        for key, subvar in dict_vars_div.items():
+            sub_dict = self._create_dictionary_variation(
+                key, dict_vars_len[key], subvar)
+            yaml_dict.update(sub_dict)
+
+        if folder is None:
+            folder = self._folder
+        with open(self._folder+"/"+filename, 'w') as file:
+            yaml.safe_dump(yaml_dict, file)
+
     def _draw(self, body: Body, **kwargs) -> None:
         """Core function to draw an element. This is the one that should be
         overwritten in the classes deriving from DrawableElement.
@@ -410,9 +497,8 @@ _Tvar = TypeVar("_Tvar", bound=DrawableElement)
 
 
 class Variation(Generic[_Tvar]):
-    """Class to handle variation of an element.
-    """
-    
+    """Class to handle variation of an element."""
+
     variation: Dict[int, _Tvar]
     to_draw: bool = True
 

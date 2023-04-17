@@ -106,18 +106,18 @@ class DrawableElement:
 
         # If params is a yaml file, load it.
         if isinstance(params, str):
-            self._dict_params = self._load_dict_from_file(params)
+            dict_params = self._load_dict_from_file(params)
         else:
-            self._dict_params = params
+            dict_params = params
+
+        # Load dictionary of children defined through a yaml.
+        if self._parent is None:
+            self._dict_params = self._load_files(dict_params)
+        else:
+            self._dict_params = dict_params
 
         # Run through the dictionary and set variables.
         attr_to_set, vars_to_set = self._parse_dict_params()
-
-        # Load dictionary of children defined through a yaml.
-        for k in attr_to_set + vars_to_set:
-            if isinstance(self._dict_params[k], str):
-                self._dict_params[k] = self._load_dict_from_file(
-                    self._dict_params[k])
 
         # Set children attributes
         for k in attr_to_set:
@@ -144,6 +144,15 @@ class DrawableElement:
                     kv += "__" + el
                 indv = int(splt[-1])
                 self._create_variation(sub_dict, kv, indv)
+
+    def _load_files(self, dict_params: Dict[str, Any]) -> Dict[str, Any]:
+        for k, v in dict_params.items():
+            if type(v) == str and v.endswith(".yaml"):
+                dict_params[k] = self._load_dict_from_file(v)
+        for k, v in dict_params.items():
+            if type(v) == dict:
+                dict_params[k] = self._load_files(v)
+        return dict_params
 
     def _parse_dict_params(self) -> Tuple[List[str], List[str]]:
         """Function ro parse the dictionary parameters. Run through the
@@ -294,7 +303,6 @@ class DrawableElement:
             splt = key.split(".")
             local = res
             for k in splt[:-1]:
-                print(k, local)
                 if k not in local:
                     local[k] = {}
                 local = local[k]

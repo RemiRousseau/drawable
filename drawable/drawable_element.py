@@ -1,6 +1,6 @@
 import yaml
 import logging
-from typing import (List, Dict, Union, Any, Mapping, TypeVar, Generic, Tuple,
+from typing import (List, Dict, Union, Any, Mapping, TypeVar, Tuple, Generic,
                     Iterable)
 from copy import copy, deepcopy
 
@@ -133,7 +133,7 @@ class DrawableElement:
 
         # Set variations object
         for k in vars_to_set:
-            setattr(self, k, self.__annotations__[k](variation={}))
+            setattr(self, k, self.__annotations__[k](variation=[]))
 
         # Set variation elements
         for k, sub_dict in self._dict_params.items():
@@ -276,7 +276,7 @@ class DrawableElement:
         if not file_path.endswith(".yaml"):
             raise ValueError(
                 f"Element {self._name} has dict params file that " +
-                "does not ends with '.yaml'")
+                f"does not ends with '.yaml': {file_path}")
         with open(f"{self._folder}/{file_path}", 'r') as file:
             read = file.read()
             dict_par = yaml.safe_load(read)
@@ -321,8 +321,8 @@ class DrawableElement:
         Raises:
             ValueError: When the core element is not defined.
         """
-        var_dict = getattr(self, kv, None)
-        if var_dict is None:
+        var_lst = getattr(self, kv, None)
+        if var_lst is None:
             raise ValueError(
                 f"To have variation '{kv}__{indv}', the attribute" +
                 f" '{kv}' should be defined in class.")
@@ -330,13 +330,13 @@ class DrawableElement:
         if sub_dict is not None:
             sub_dict = self._complete_dict(sub_dict)
             variation = deep_update(variation, sub_dict)
-        var_dict[indv] = self.__annotations__[kv].__args__[0](
+        var_lst.append(self.__annotations__[kv].__args__[0](
                 self._folder,
                 variation,
                 self._modeler,
                 self._name + f"_{kv}_{indv}",
                 parent=self
-            )
+        ))
 
     @property
     def children(self) -> List["DrawableElement"]:
@@ -507,45 +507,40 @@ _Tvar = TypeVar("_Tvar", bound=DrawableElement)
 class Variation(Generic[_Tvar]):
     """Class to handle variation of an element."""
 
-    variation: Dict[int, _Tvar]
+    variations: List[_Tvar]
     to_draw: bool = True
 
     _len: int
 
     def __init__(
         self,
-        variation: Dict[int, _Tvar],
+        variation: List[_Tvar],
     ):
-        self._variations = variation
-        self._keys = list(self._variations.keys())
-        self._len = len(self._keys)
-
-    def __setitem__(self, key: int, value: _Tvar):
-        is_in = key in self._variations
-        self._variations[key] = value
-        if not is_in:
-            self._keys = list(self._variations.keys())
-            self._len += 1
-
-    def __getitem__(self, key: int) -> _Tvar:
-        return self._variations[key]
+        self.variations = variation
+        self._len = len(self.variations)
 
     def __iter__(self) -> "Variation":
         self._n_iter = 0
         return self
 
+    def __getitem__(self, item):
+        return self.variations[item]
+
     def __next__(self) -> _Tvar:
         if self._n_iter < self._len:
-            result = self._variations[self._keys[self._n_iter]]
+            result = self.variations[self._n_iter]
             self._n_iter += 1
             return result
         else:
             raise StopIteration
 
-    def keys(self) -> Iterable:
-        return self._variations.keys()
+    def __len__(self):
+        return len(self.variations)
 
-    def draw(self, **kwargs) -> None:
+    def append(self, el: _Tvar) -> None:
+        self.variations.append(el)
+
+    def draw(self, body: Body, **kwargs) -> None:
         if self.to_draw:
-            for el in self._variations.values():
-                el.draw(**kwargs)
+            for el in self.variations:
+                el.draw(body=body, **kwargs)

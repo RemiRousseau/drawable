@@ -191,7 +191,8 @@ class DrawableElement:
             cls_name (type): Type of the element.
             value (Any): Value from _dict_params.
         """
-        if cls_name in [int, float, bool] or self._mode == "None":
+        if (cls_name in [int, float, bool] or self._mode == "None" or 
+            key.endswith("__n")):
             setattr(self, key, value)
         elif self._mode == "gds":
             setattr(self, key, parse_entry(value))

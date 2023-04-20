@@ -132,8 +132,18 @@ class DrawableElement:
             )
 
         # Set variations object
-        for k in vars_to_set:
-            setattr(self, k, self.__annotations__[k](variation=[]))
+        for k, cls in vars_to_set:
+            original = cls(
+                self._folder,
+                self._dict_params[k],
+                self._modeler,
+                self._name + "_" + k,
+                parent=self
+            )
+            setattr(self, k, self.__annotations__[k](
+                variation=[],
+                original=original,
+            ))
 
         # Set variation elements
         for k, sub_dict in self._dict_params.items():
@@ -170,7 +180,7 @@ class DrawableElement:
             if k in self._dict_params:
                 if hasattr(cls_name, '__origin__'):
                     if issubclass(cls_name.__origin__, Variation):
-                        vars_to_set.append(k)
+                        vars_to_set.append([k, cls_name.__args__[0]])
                     elif issubclass(cls_name.__origin__, List):
                         self._set_list(
                             k, cls_name.__args__[0], self._dict_params[k])
@@ -516,9 +526,13 @@ class Variation(Generic[_Tvar]):
     def __init__(
         self,
         variation: List[_Tvar],
+        original: _Tvar,
     ):
         self.variations = variation
         self._len = len(self.variations)
+        for attr, value in original.__dict__.items():
+            if not attr.startswith('_'):
+                setattr(self, attr, value)
 
     def __iter__(self) -> "Variation":
         self._n_iter = 0

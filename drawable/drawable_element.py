@@ -1,25 +1,28 @@
-import yaml
 import logging
 from typing import (List, Dict, Union, Any, Mapping, TypeVar, Tuple, Generic,
                     Iterable)
 from copy import copy, deepcopy
+import yaml
 
 from HFSSdrawpy import Modeler, Body
 from HFSSdrawpy.utils import parse_entry, Vector
 
 
-def deep_update(d: Dict[str, Any], u: Dict[str, Any]) -> Dict[str, Any]:
-    for k, v in u.items():
+def deep_update(
+        base_dict: Dict[str, Any],
+        update: Dict[str, Any]
+) -> Dict[str, Any]:
+    """Update nested dictionnaries"""
+    for k, v in update.items():
         if isinstance(v, Mapping):
-            d[k] = deep_update(d.get(k, {}), v)
+            base_dict[k] = deep_update(base_dict.get(k, {}), v)
         else:
-            d[k] = v
-    return d
+            base_dict[k] = v
+    return base_dict
 
 
 class ImplementationError(Exception):
     "Raised there is an implementation error usign drawable."
-    pass
 
 
 _TL = TypeVar("_TL")
@@ -216,6 +219,7 @@ class DrawableElement:
         self,
         cls_name: type,
         value_list: _TL,
+        key: str,
         index: int = 0
     ) -> _TL:
         """Create parsed list of the element.
@@ -244,12 +248,12 @@ class DrawableElement:
                 labels = ["x", "y", "z"] if n_el < 4 else range(n_el)
                 return Vector([
                     self._modeler.set_variable(
-                        v, name=f"{self.name}_{index}_{n}")
+                        v, name=f"{self.name}_{key}_{index}_{n}")
                     for n, v in zip(labels, value_list)
                 ])
 
     def _set_list(self, key: str, cls_name: type, value_list: Any) -> None:
-        setattr(self, key, self._list_attr(cls_name, value_list))
+        setattr(self, key, self._list_attr(cls_name, value_list, key))
 
     def _search_in_parents(self, key: str) -> None:
         """Recursively run through the parents to find an attribute.
@@ -357,9 +361,9 @@ class DrawableElement:
             List["DrawableElement"]: Childrens.
         """
         children = []
-        for k in self.__dict__:
+        for k, clss in self.__dict__.items():
             if (
-                isinstance(self.__dict__[k], DrawableElement) and
+                isinstance(clss, DrawableElement) and
                 not k.startswith("_")
             ):
                 children.append(k)
@@ -372,6 +376,20 @@ class DrawableElement:
     @property
     def name(self) -> str:
         return self._name
+
+    @property
+    def reduced_name(self) -> str:
+        splt = self._name.split("_")
+        n_max = 30
+        name = splt.pop()
+        n = len(name)
+        for el in splt[::-1]:
+            len_el = len(el)
+            if len_el + n + 1 > n_max:
+                return name
+            else:
+                name = el + "_" + name
+                n += len_el + 1
 
     @property
     def mode(self) -> str:

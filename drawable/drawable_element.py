@@ -80,7 +80,7 @@ class DrawableElement:
         draw: Draw the element.
     """
 
-    __annotations__: dict[str, Union[Any, Type["DrawableElement"]]]
+    __annotations__: Dict[str, Union[Any, Type["DrawableElement"]]]
     _folder: str
     _parent: Optional["DrawableElement"] = None
     _name: str

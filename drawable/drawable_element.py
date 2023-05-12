@@ -9,6 +9,15 @@ from HFSSdrawpy import Modeler, Body
 from HFSSdrawpy.utils import parse_entry, Vector
 
 
+logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
+logger = logging.getLogger(__name__)
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter('%(levelname)s:%(message)s'))
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
+logger.propagate = False
+
+
 def deep_update(
         base_dict: Dict[str, Any],
         update: Dict[str, Any]
@@ -81,8 +90,8 @@ class DrawableElement:
         self,
         folder: str,
         params: Union[Dict[str, Any], str],
-        modeler: Modeler,
         name: str,
+        modeler: Optional[Modeler] = None,
         parent: Optional["DrawableElement"] = None
     ) -> None:
         """Init.
@@ -99,7 +108,7 @@ class DrawableElement:
                 f"User should not override the draw method in class {type(self)}."
                 "He should implement _draw instead.")
 
-        logging.debug("Initializing %s", name)
+        logger.debug("Initializing %s", name)
 
         self._folder = folder
         self._modeler: Final = modeler
@@ -128,8 +137,8 @@ class DrawableElement:
                 self, attr, self.__annotations__[attr](
                     self._folder,
                     self._dict_params[attr],
-                    self._modeler,
                     self._name + "_" + attr,
+                    self._modeler,
                     parent=self
                 )
             )
@@ -139,8 +148,8 @@ class DrawableElement:
             original = cls(
                 self._folder,
                 self._dict_params[attr],
-                self._modeler,
                 self._name + "_" + attr,
+                self._modeler,
                 parent=self
             )
             setattr(self, attr, self.__annotations__[attr](  # type: ignore
@@ -543,7 +552,7 @@ class DrawableElement:
     def draw(self, body: Body, **kwargs) -> None:
         """Call _draw if if object is 'to_draw'."""
         if self.to_draw:
-            logging.debug("Drawing %s", self.name)
+            logger.debug("Drawing %s", self.name)
             self._draw(body, **kwargs)
 
 

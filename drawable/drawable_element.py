@@ -1,12 +1,31 @@
-from typing import (Final, List, Dict, Optional, Type, Union, Any,
+from typing import (Final, List, Dict, Optional, Protocol, Type, Union, Any,
                     TypeVar, Tuple, Generic, Iterable, final)
 import os
 from copy import copy, deepcopy
 import yaml
 import logging
 
-from HFSSdrawpy import Modeler, Body
-from HFSSdrawpy.utils import parse_entry, Vector
+try:
+    # from HFSSdrawpy import Modeler, Body
+    from HFSSdrawpy.utils import parse_entry, Vector
+except ModuleNotFoundError:
+    Vector = list
+
+    def parse_entry(*args):
+        return args
+
+
+class Modeler(Protocol):
+    """Protocol for Modeler from HFSSdrawpy."""
+
+    mode: str
+
+    def set_variable(self, value, name):
+        ...
+
+
+class Body(Protocol):
+    """Protocol for Body from HFSSdrawpy."""
 
 
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)

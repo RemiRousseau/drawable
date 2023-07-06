@@ -154,10 +154,10 @@ class DrawableElement:
         for attr in attrs_to_set:
             setattr(
                 self, attr, self.__annotations__[attr](
-                    self._folder,
-                    self._dict_params[attr],
-                    self._name + "_" + attr,
-                    self._modeler,
+                    folder=self._folder,
+                    params=self._dict_params[attr],
+                    name=self._name + "_" + attr,
+                    modeler=self._modeler,
                     parent=self
                 )
             )
@@ -165,10 +165,10 @@ class DrawableElement:
         # Set variat ions object
         for attr, cls in vars_to_set:
             original = cls(
-                self._folder,
-                self._dict_params[attr],
-                self._name + "_" + attr,
-                self._modeler,
+                folder=self._folder,
+                params=self._dict_params[attr],
+                name=self._name + "_" + attr,
+                modeler=self._modeler,
                 parent=self
             )
             setattr(self, attr, self.__annotations__[attr](  # type: ignore
@@ -380,10 +380,10 @@ class DrawableElement:
             sub_dict = self._complete_dict(sub_dict)
             variation = deep_update(variation, sub_dict)
         var_lst.append(self.__annotations__[kv].__args__[0](  # type: ignore
-            self._folder,
-            variation,
-            self._modeler,
-            self._name + f"_{kv}_{indv}",
+            folder=self._folder,
+            params=variation,
+            modeler=self._modeler,
+            name=self._name + f"_{kv}_{indv}",
             parent=self
         ))
 
